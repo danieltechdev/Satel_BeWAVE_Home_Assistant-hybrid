@@ -142,10 +142,31 @@ class BeWaveHub:
                     self.state = "triggered"
                     break
 
+    # devices that report an armed flag but are not part of full arming
+    # (remote/keyfob APT-210, tamper/siren sabotage input)
+    _NON_ARMABLE_MODELS = {"APT-210"}
+    _NON_ARMABLE_TYPES = {0x10002, 66819}
+
+    def _armable_ids(self):
+        out = []
+        for did, st in self.dev_state.items():
+            if st.get("armed") is None:
+                continue
+            nm = self.dev_names.get(did, {})
+            if nm.get("model") in self._NON_ARMABLE_MODELS:
+                continue
+            if (nm.get("type") or st.get("type")) in self._NON_ARMABLE_TYPES:
+                continue
+            out.append(did)
+        return out
+
     def mode_state(self, mode):
         """State of one arm mode, derived from the 'armed' flag (f20) of the devices
         that belong to the mode. Falls back to the global state if unknown."""
-        ids = (self.modes.get(mode) or {}).get("device_ids") or []
+        info = self.modes.get(mode) or {}
+        ids = info.get("device_ids") or []
+        if not ids and info.get("default"):
+            ids = self._armable_ids()          # full arming ("pelne czuwanie")
         flags = [self.dev_state.get(i, {}).get("armed") for i in ids]
         if not ids or any(f is None for f in flags):
             return self.state

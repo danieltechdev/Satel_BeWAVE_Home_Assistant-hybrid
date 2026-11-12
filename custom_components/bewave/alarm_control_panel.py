@@ -24,10 +24,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator, hub = data["coordinator"], data["hub"]
     # Modes with devices become their own entity. Without any (older firmware, or
     # modes not read yet) keep the single entity driven by the "mode" option.
-    modes = {k: v for k, v in hub.modes.items() if v.get("devices")}
+    modes = {k: v for k, v in hub.modes.items() if v.get("devices") or v.get("default")}
     if modes:
         async_add_entities(
-            [BeWaveAlarmPanel(coordinator, hub, entry, k, v.get("name") or k)
+            [BeWaveAlarmPanel(coordinator, hub, entry, k,
+                              v.get("name") or ("Pełne czuwanie" if v.get("default") else k))
              for k, v in modes.items()])
     else:
         async_add_entities([BeWaveAlarmPanel(coordinator, hub, entry, None, None)])
