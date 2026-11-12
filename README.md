@@ -275,5 +275,4 @@ Tested against a HYBRID 128 Plus (firmware 1.05, LAN, local user). Changes vs. u
   Set the one to arm/disarm in the integration options (`mode`), e.g. `1410c`.
 - **Arming** is reported as `arming` until the panel confirms (exit delay).
 
-Known limits: one shared armed/disarmed state (per-mode state is not decoded yet);
-only the `mode` selected in options can be armed from HA.
+Each arm mode (e.g. "Ochrona Dom") is its own alarm entity; its state is derived from the armed flag of the devices in that mode (verify with modes_check).

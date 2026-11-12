@@ -133,9 +133,11 @@ def alarm_modes(plaintext):
         payload = pb_read(d[53][0]).get(1, [b""])[0]
         for al in pb_read(payload).get(1, []):
             a = pb_read(al)
+            ids = [pb_read(k).get(1, [None])[0] for k in a.get(6, [])]
             out[_s(a.get(1, [b""])[0])] = {"name": _s(a.get(2, [b""])[0]),
                                            "default": bool(a.get(3, [0])[0]),
-                                           "devices": len(a.get(6, []))}
+                                           "devices": len(ids),
+                                           "device_ids": [i for i in ids if i is not None]}
     except Exception:
         return None
     return out
