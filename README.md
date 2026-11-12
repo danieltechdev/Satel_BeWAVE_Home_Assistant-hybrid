@@ -3,8 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
 Lokalna integracja **Home Assistant** z alarmami **Satel BE WAVE** — bez chmury i bez
-dodatkowego sprzętu. Łączy się bezpośrednio z centralą w sieci LAN (TCP/4200, szyfrowanie
-AES-256-GCM) na lokalnego użytkownika i hasło.
+dodatkowego sprzętu. Łączy się bezpośrednio z centralą w Twojej sieci, na lokalnego użytkownika i hasło.
 
 Ten projekt jest **forkiem** integracji [slaveitgr/Satel_BeWAVE_Home_Assistant-](https://github.com/slaveitgr/Satel_BeWAVE_Home_Assistant-),
 rozszerzonym o obsługę centrali **BE WAVE HYBRID 128 Plus**.
@@ -35,23 +34,12 @@ ten fork by nie powstał; moje zmiany to tylko dostosowanie do centrali HYBRID. 
 Sprawdzone na: **BE WAVE HYBRID 128 Plus, firmware 1.05** (alarm, tryby, stany urządzeń).
 Oryginalnie wspierane: Smart HUB i Smart HUB Plus (fw 1.04) — ta wersja nie była na nich ponownie testowana.
 
-## Co zmieniłem względem oryginału (i dlaczego)
+## Co jest inne niż w oryginale
 
-Centrala HYBRID mówi tym samym protokołem, ale jest bardziej wymagająca niż Smart HUB:
-
-1. **ID użytkownika i urządzenia w nagłówku.** Centrala odpowiada na logowanie własnymi
-   `userId`/`deviceId` i wymaga ich w nagłówku każdego następnego żądania. Oryginał wpisywał
-   na sztywno 2 i 4, więc HYBRID odrzucała wszystko błędami 100/101 i odsyłała puste odpowiedzi.
-   Teraz klient zapamiętuje wartości z odpowiedzi logowania.
-2. **Spokojniejsze subskrypcje.** HYBRID zamyka sesję, gdy żądania przychodzą seriami.
-   Subskrypcje idą co 1,2 s (stan, konfiguracja, status centrali, tryby uzbrajania, sieć).
-3. **Podtrzymywanie sesji.** HYBRID zamyka sesję po krótkiej ciszy, więc osobny wątek co 1,5 s
-   wysyła lekkie zapytanie o stan. Przy okazji centrala sama przysyła zmiany.
-4. **Tryby uzbrajania.** Lista trybów jest czytana z centrali. Stan każdego trybu jest
-   wyliczany ze znacznika „uzbrojony" urządzeń, które do niego należą. „Pełne czuwanie"
-   pomija urządzenia, których nie da się uzbroić (pilot, wejście sabotażowe).
-5. **Stan „uzbrajanie".** Komenda uzbrojenia nie jest powtarzana, gdy centrala nie potwierdza
-   jej natychmiast (opóźnienie wyjścia); encja pokazuje „uzbrajanie" do 90 s.
+Centrala HYBRID mówi tym samym językiem co Smart HUB, ale jest bardziej wymagająca: zamyka połączenie, gdy
+zapytania przychodzą za szybko albo gdy przez chwilę nic się nie dzieje, i odrzuca zapytania z niewłaściwymi
+danymi użytkownika. Ten fork to naprawia, czyta tryby uzbrajania z centrali i pokazuje każdy jako osobną encję.
+Szczegóły techniczne: [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
 ## Karta do panelu (Lovelace)
 
@@ -156,47 +144,19 @@ osobne identyfikatory dla każdego trybu. Przed dodaniem zamknij aplikację BE W
 - Alarm „wyzwolony" jest wykrywany tylko po otwarciu czujki przy uzbrojonym alarmie.
 - Brak obsługi chmury, przekaźników/wyjść i zdarzeń pilota.
 
-## Testy bez Home Assistant
-
-Klient protokołu działa samodzielnie (`pip install cryptography`):
-
-```bash
-python3 custom_components/bewave/bewave_client.py status --host 192.168.1.50 --login USER --password 'PASS'
-```
-
-## Jak działa protokół (skrót)
-
-| Etap | Klucz | AAD |
-|------|-------|-----|
-| logowanie aplikacja → centrala | MD5(hasło)·2 | login |
-| logowanie centrala → aplikacja | deviceUuid (ASCII, 32 B) | MD5(login dopełniony do 64) |
-| polecenia aplikacja → centrala | deviceUuid | MD5(sessionId) |
-| stan centrala → aplikacja | sessionSecret (`f4` z odpowiedzi) | MD5(sessionId) |
-
-IV = `randomNumber ‖ timestamp ‖ counter` (BE32), AES-256-GCM, tag 16 B. Wiadomości to protobuf;
-nagłówek zawiera m.in. `userId`/`deviceId`, `counter`, `timestamp`, `randomNumber` oraz w odpowiedzi
-`status`/`error`. Żądania: `f24` ping, `f26` status, `f44` konfiguracja, `f52` tryby, `f88` stan
-urządzeń; uzbrajanie: `f94{f1{f1{f1=id trybu, f2=1|0}}}`. Stan urządzenia: pole 20 (`1`/`2` uzbrojone).
-
----
-
 ## English summary
 
 Local Home Assistant integration for Satel **BE WAVE** alarms (no cloud, no bridge), forked from
 [slaveitgr's integration](https://github.com/slaveitgr/Satel_BeWAVE_Home_Assistant-) with
 support for the **BE WAVE HYBRID 128 Plus** (verified on firmware 1.05).
 
-Changes vs. upstream: (1) the sign-in response's `userId`/`deviceId` are sent in every request
-header (they were hard-coded; HYBRID answers with errors 100/101 otherwise); (2) requests are
-paced instead of sent in a burst; (3) a background keep-alive request every 1.5 s keeps the
-session open; (4) arm modes are read from the panel and each becomes its own
-`alarm_control_panel` entity (incl. "full arming"), with per-mode state derived from its
-devices; (5) an `arming` state is shown during the exit delay.
+The HYBRID panel needs paced requests, a keep-alive and the ids from its sign-in reply. Each arm mode becomes its own
+`alarm_control_panel` entity, with a Lovelace card and an optional PIN. Details: [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
 Install via HACS as a custom repository (category *Integration*):
 `https://github.com/danieltechdev/Satel_BeWAVE_Home_Assistant-hybrid`.
 
-### Disclaimer
+## Zastrzeżenie / Disclaimer
 
 Nieoficjalna integracja społecznościowa, niezwiązana z firmą SATEL. Używa Twoich własnych
 danych logowania do sterowania Twoim alarmem. Nie opieraj bezpieczeństwa obiektu wyłącznie
