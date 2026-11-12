@@ -132,6 +132,22 @@ Instalacja ręczna: skopiuj `custom_components/bewave/` do `config/custom_compon
 - Jeśli zamieniasz wcześniejszą wersję, usuń integrację i dodaj ją ponownie (zmieniły się encje).
 - Pole „tryb" w opcjach jest używane tylko, gdy centrala nie zwróci listy trybów.
 
+## Aktualizacja zainstalowanej wersji
+
+**Przez HACS (zalecane):**
+1. HACS → **Integracje** → BE WAVE (Satel) → ⋮ → **Pobierz ponownie / Update information**
+   (albo ⋮ → *Redownload* i wybierz najnowszą wersję).
+2. **Zrestartuj Home Assistant** (Ustawienia → System → ⋮ → Uruchom ponownie).
+3. Odśwież przeglądarkę z wyczyszczeniem pamięci podręcznej (**Ctrl+F5**; w aplikacji mobilnej: Ustawienia
+   aplikacji → Debugowanie → Resetuj lokalne zasoby), żeby załadować nową kartę.
+
+**Ręcznie:** podmień folder `config/custom_components/bewave/` zawartością `custom_components/bewave/`
+z repozytorium (razem z podfolderem `www/`), zrestartuj HA i odśwież przeglądarkę (Ctrl+F5).
+
+**Po aktualizacji ze starej wersji** (oryginał slaveitgr lub wcześniejszy fork) usuń integrację
+(Ustawienia → Urządzenia i usługi → BE WAVE → ⋮ → Usuń) i dodaj ją ponownie. Encje alarmu mają teraz
+osobne identyfikatory dla każdego trybu. Przed dodaniem zamknij aplikację BE WAVE na telefonie.
+
 ## Znane ograniczenia
 
 - Stan trybu jest wyliczany z urządzeń trybu (potwierdzone na HYBRID 128 Plus z trybami Piwnica/Dom/pełne
