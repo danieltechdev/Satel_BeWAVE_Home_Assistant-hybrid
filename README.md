@@ -1,278 +1,133 @@
-# BE WAVE (Satel) — Home Assistant integration
+# BE WAVE (Satel) — Home Assistant integration (fork z obsługą HYBRID 128 Plus)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-## Ελληνικά
+Lokalna integracja **Home Assistant** z alarmami **Satel BE WAVE** — bez chmury i bez
+dodatkowego sprzętu. Łączy się bezpośrednio z centralą w sieci LAN (TCP/4200, szyfrowanie
+AES-256-GCM) na lokalnego użytkownika i hasło.
 
-Custom integration για το **Home Assistant** που επιτρέπει τοπικό έλεγχο ενός συναγερμού **Satel BE WAVE Smart HUB** από το Home Assistant, χωρίς hardware bridge και χωρίς cloud λογαριασμό.
+Ten projekt jest **forkiem** integracji [slaveitgr/Satel_BeWAVE_Home_Assistant-](https://github.com/slaveitgr/Satel_BeWAVE_Home_Assistant-),
+rozszerzonym o obsługę centrali **BE WAVE HYBRID 128 Plus**.
 
-Η σύνδεση γίνεται απευθείας στο τοπικό δίκτυο, χρησιμοποιώντας το local protocol του HUB, με authentication μέσω του **τοπικού username και password** του χρήστη.
+## Podziękowania
 
-Λειτουργεί με **BE WAVE Smart HUB** και **BE WAVE Smart HUB Plus**. Δεν είναι δεμένο σε συγκεκριμένη συσκευή. Ο χρήστης βάζει τα δικά του στοιχεία σύνδεσης, το serial γίνεται auto-discovery όπου είναι δυνατόν και δημιουργείται αυτόματα μοναδικό device identity ανά εγκατάσταση.
+Ogromne podziękowania dla **[slaveitgr](https://github.com/slaveitgr)** — autora oryginalnej
+integracji. To on rozpracował protokół BE WAVE (logowanie, szyfrowanie, format wiadomości,
+odczyt stanu, uzbrajanie), napisał klienta i całą integrację dla Smart HUB. Bez jego pracy
+ten fork by nie powstał; moje zmiany to tylko dostosowanie do centrali HYBRID. 🙏
 
-### Δυνατότητες
+> _English:_ Huge thanks to **slaveitgr**, the author of the original integration, who
+> reverse-engineered the BE WAVE protocol and built the client and the Home Assistant
+> integration for the Smart HUB. This fork only adapts it to the HYBRID panel.
 
-- 🔌 Τοπική σύνδεση στο LAN, χωρίς cloud
-- 🔐 Login με local username + password
-- 🛡️ `alarm_control_panel` entity στο Home Assistant
-- ✅ Arm away / Disarm
-- 🔴 **Live state read-back** — το panel δείχνει την πραγματική κατάσταση **ακόμα κι όταν αλλάζει από το κινητό**, τοπικά
-- 🚪 **Sensors**: ανιχνευτές πόρτας/παραθύρου (opening) & κίνησης (motion) ως `binary_sensor`
-- 🌡️ **Θερμοκρασία & μπαταρία** ανά συσκευή ως `sensor` (+ τάση, σήμα, system number ως attributes)
-- 🎛️ **Hub setting switches**: LED indicator, GRADE 2, SATEL server connection
-- 🔑 **Αυτο-εγγραφή** (firmware 1.04+): δημιουργεί δικό του device id και εγγράφεται μόνο του — δεν χρειάζεται «add device» χειροκίνητα
-- ⚙️ Configurable protection-mode key
-- 🔒 AES-256-GCM crypto, fully local/on-device
+## Co działa
 
-> **Κατάσταση: v0.4.** Sign-in, arm/disarm, live state, switches, **sensors (πόρτα/κίνηση/θερμοκρασία/μπαταρία) και αυτο-εγγραφή** δοκιμασμένα σε πραγματική μονάδα (fw 1.04).
-> Το read-back είναι 100% τοπικό (δουλεύει ακόμα και χωρίς internet): μετά το sign-in ο HUB
-> κάνει push την κατάσταση των συσκευών και σε κάθε αλλαγή.
+- 🔌 Połączenie lokalne w LAN, logowanie lokalnym użytkownikiem i hasłem
+- 🛡️ **Osobna encja alarmu (`alarm_control_panel`) dla każdego trybu uzbrajania** czytanego z centrali, np. „Ochrona Piwnica", „Ochrona Dom" oraz **„Pełne czuwanie"** (tryb domyślny). Każdy tryb uzbrajasz i rozbrajasz niezależnie
+- ⏳ Stan **„uzbrajanie"** podczas opóźnienia wyjścia (centrala potwierdza uzbrojenie dopiero po nim)
+- 🔴 Odczyt stanu na żywo, także gdy tryb zmieniasz z aplikacji w telefonie
+- 🚪 Czujki otwarcia i ruchu jako `binary_sensor`, temperatura i bateria jako `sensor`
+- 🎛️ Przełączniki ustawień centrali (LED, GRADE 2, połączenie z serwerem SATEL)
+- 🔑 Automatyczna rejestracja własnego identyfikatora urządzenia
+- 🔒 Wszystko lokalnie, bez internetu
 
-### Εγκατάσταση μέσω HACS custom repository
+Sprawdzone na: **BE WAVE HYBRID 128 Plus, firmware 1.05** (alarm, tryby, stany urządzeń).
+Oryginalnie wspierane: Smart HUB i Smart HUB Plus (fw 1.04) — ta wersja nie była na nich ponownie testowana.
 
-1. Άνοιξε το **HACS**.
-2. Πήγαινε **⋮ → Custom repositories**.
-3. Πρόσθεσε το παρακάτω repository ως category **Integration**:
+## Co zmieniłem względem oryginału (i dlaczego)
 
-```text
-https://github.com/slaveitgr/Satel_BeWAVE_Home_Assistant-
-```
+Centrala HYBRID mówi tym samym protokołem, ale jest bardziej wymagająca niż Smart HUB:
 
-4. Εγκατέστησε το **BE WAVE (Satel)**.
-5. Κάνε **restart** το Home Assistant.
-6. Πήγαινε **Settings → Devices & Services → Add Integration**.
-7. Αναζήτησε **BE WAVE**.
-8. Βάλε την IP του HUB, το τοπικό username και το password.
+1. **ID użytkownika i urządzenia w nagłówku.** Centrala odpowiada na logowanie własnymi
+   `userId`/`deviceId` i wymaga ich w nagłówku każdego następnego żądania. Oryginał wpisywał
+   na sztywno 2 i 4, więc HYBRID odrzucała wszystko błędami 100/101 i odsyłała puste odpowiedzi.
+   Teraz klient zapamiętuje wartości z odpowiedzi logowania.
+2. **Spokojniejsze subskrypcje.** HYBRID zamyka sesję, gdy żądania przychodzą seriami.
+   Subskrypcje idą co 1,2 s (stan, konfiguracja, status centrali, tryby uzbrajania, sieć).
+3. **Podtrzymywanie sesji.** HYBRID zamyka sesję po krótkiej ciszy, więc osobny wątek co 1,5 s
+   wysyła lekkie zapytanie o stan. Przy okazji centrala sama przysyła zmiany.
+4. **Tryby uzbrajania.** Lista trybów jest czytana z centrali. Stan każdego trybu jest
+   wyliczany ze znacznika „uzbrojony" urządzeń, które do niego należą. „Pełne czuwanie"
+   pomija urządzenia, których nie da się uzbroić (pilot, wejście sabotażowe).
+5. **Stan „uzbrajanie".** Komenda uzbrojenia nie jest powtarzana, gdy centrala nie potwierdza
+   jej natychmiast (opóźnienie wyjścia); encja pokazuje „uzbrajanie" do 90 s.
 
-Το Home Assistant πρέπει να βρίσκεται στο ίδιο LAN με το BE WAVE Smart HUB.
+## Instalacja (HACS)
 
-### Χειροκίνητη εγκατάσταση
+1. HACS → ⋮ → **Custom repositories** → dodaj jako **Integration**:
 
-Αν δεν χρησιμοποιείς HACS, αντέγραψε τον φάκελο:
+   ```text
+   https://github.com/danieltechdev/Satel_BeWAVE_Home_Assistant-hybrid
+   ```
+2. Zainstaluj **BE WAVE (Satel)** i zrestartuj Home Assistant.
+3. Ustawienia → Urządzenia i usługi → **Dodaj integrację** → BE WAVE.
+4. Podaj adres IP centrali, lokalnego użytkownika i hasło.
 
-```text
-custom_components/bewave/
-```
+Instalacja ręczna: skopiuj `custom_components/bewave/` do `config/custom_components/bewave/`.
 
-στο Home Assistant path:
+**Wskazówki:**
+- Centrala ma ograniczoną liczbę równoczesnych sesji (oraz 5 urządzeń mobilnych na użytkownika).
+  Przed pierwszą konfiguracją wyłącz starą integrację BE WAVE i zamknij aplikację na telefonie
+  i w Windows. Najlepiej utwórz osobnego lokalnego użytkownika dla Home Assistant.
+- Pierwsze logowanie trwa kilkanaście sekund — to normalne.
+- Jeśli zamieniasz wcześniejszą wersję, usuń integrację i dodaj ją ponownie (zmieniły się encje).
+- Pole „tryb" w opcjach jest używane tylko, gdy centrala nie zwróci listy trybów.
 
-```text
-config/custom_components/bewave/
-```
+## Znane ograniczenia
 
-και κάνε restart το Home Assistant.
+- Stan trybu jest wyliczany z urządzeń trybu (potwierdzone na HYBRID 128 Plus z trybami Piwnica/Dom/pełne
+  czuwanie). Tryby bez przypisanych urządzeń nie dostaną własnej encji (poza domyślnym).
+- Pełne czuwanie uzbraja także tryby składowe, więc ich encje pokażą „uzbrojony".
+- Alarm „wyzwolony" jest wykrywany tylko po otwarciu czujki przy uzbrojonym alarmie.
+- Brak obsługi chmury, przekaźników/wyjść i zdarzeń pilota.
 
-### Άμεση δοκιμή του protocol
+## Testy bez Home Assistant
 
-Το protocol core μπορεί να τρέξει και standalone, χωρίς Home Assistant.
-
-Πρώτα εγκατέστησε το dependency:
+Klient protokołu działa samodzielnie (`pip install cryptography`):
 
 ```bash
-pip install cryptography
-```
-
-Μετά μπορείς να δοκιμάσεις (βάλε τα δικά σου στοιχεία στη θέση των `USER` / `PASS`):
-
-```bash
-python3 custom_components/bewave/bewave_client.py discover
 python3 custom_components/bewave/bewave_client.py status --host 192.168.1.50 --login USER --password 'PASS'
-python3 custom_components/bewave/bewave_client.py arm    --host 192.168.1.50 --login USER --password 'PASS'
-python3 custom_components/bewave/bewave_client.py disarm --host 192.168.1.50 --login USER --password 'PASS'
 ```
 
-### Πώς δουλεύει το protocol
+## Jak działa protokół (skrót)
 
-| Stage | Key | AAD |
-|------|-----|-----|
-| sign-in app → hub | MD5(password)·2 | login |
-| sign-in hub → app | deviceUuid ASCII 32B | MD5(login padded to 64) |
-| ongoing app → hub commands | deviceUuid ASCII 32B | MD5(sessionId) |
-| ongoing hub → app status | sessionSecret `f4` from response | MD5(sessionId) |
+| Etap | Klucz | AAD |
+|------|-------|-----|
+| logowanie aplikacja → centrala | MD5(hasło)·2 | login |
+| logowanie centrala → aplikacja | deviceUuid (ASCII, 32 B) | MD5(login dopełniony do 64) |
+| polecenia aplikacja → centrala | deviceUuid | MD5(sessionId) |
+| stan centrala → aplikacja | sessionSecret (`f4` z odpowiedzi) | MD5(sessionId) |
 
-Το IV είναι:
-
-```text
-randomNumber ‖ timestamp ‖ counter
-```
-
-σε BE32 μορφή.
-
-Cipher:
-
-```text
-AES-256-GCM, 12-byte IV, 16-byte tag
-```
-
-ARM/DISARM payload:
-
-```text
-protobuf f94{f1{f1{f1=mode, f2=1|0}}}
-```
-
-**State read-back (τοπικά):** μετά το sign-in, ο client κάνει subscribe στα κανάλια συσκευών.
-Ο HUB τότε στέλνει ένα μήνυμα `f89` (device state) μία φορά αμέσως και ξανά σε κάθε αλλαγή
-— ακόμα κι όταν οπλίζεις/αφοπλίζεις από το κινητό. Η κατάσταση οπλισμού βρίσκεται στο
-**protobuf πεδίο 20** (`1`=οπλισμένος, `2`=μερικός, `0`=αφοπλισμένος).
-
-### Roadmap
-
-- Υποστήριξη πολλαπλών protection modes (`arm_home`, `arm_night`, custom)
-- Relays / outputs ως `switch` entities (όταν υπάρχουν ρυθμισμένα)
-- Time / timezone και network (LAN) ρυθμίσεις ως υπηρεσίες (commands `f92` / `f28` αποκωδικοποιημένα)
-- Keyfob button events (απαιτεί Event Log)
-
-### Σημαντική σημείωση
-
-Αυτό είναι unofficial community integration και δεν έχει σχέση με τη SATEL.
-Χρησιμοποιεί τα δικά σου credentials για να ελέγξει τον δικό σου συναγερμό.
-Μην βασίζεις την ασφάλεια ενός χώρου αποκλειστικά σε software integration ή automation.
-Η χρήση γίνεται με δική σου ευθύνη.
+IV = `randomNumber ‖ timestamp ‖ counter` (BE32), AES-256-GCM, tag 16 B. Wiadomości to protobuf;
+nagłówek zawiera m.in. `userId`/`deviceId`, `counter`, `timestamp`, `randomNumber` oraz w odpowiedzi
+`status`/`error`. Żądania: `f24` ping, `f26` status, `f44` konfiguracja, `f52` tryby, `f88` stan
+urządzeń; uzbrajanie: `f94{f1{f1{f1=id trybu, f2=1|0}}}`. Stan urządzenia: pole 20 (`1`/`2` uzbrojone).
 
 ---
 
-## English
+## English summary
 
-Custom **Home Assistant** integration for local control of a **Satel BE WAVE Smart HUB** alarm system, without a hardware bridge and without a cloud account.
+Local Home Assistant integration for Satel **BE WAVE** alarms (no cloud, no bridge), forked from
+[slaveitgr's integration](https://github.com/slaveitgr/Satel_BeWAVE_Home_Assistant-) with
+support for the **BE WAVE HYBRID 128 Plus** (verified on firmware 1.05).
 
-The integration connects directly over the local network and speaks the HUB's own local protocol, using the user's **local username and password** for authentication.
+Changes vs. upstream: (1) the sign-in response's `userId`/`deviceId` are sent in every request
+header (they were hard-coded; HYBRID answers with errors 100/101 otherwise); (2) requests are
+paced instead of sent in a burst; (3) a background keep-alive request every 1.5 s keeps the
+session open; (4) arm modes are read from the panel and each becomes its own
+`alarm_control_panel` entity (incl. "full arming"), with per-mode state derived from its
+devices; (5) an `arming` state is shown during the exit delay.
 
-It works with **BE WAVE Smart HUB** and **BE WAVE Smart HUB Plus**. It is not hard-coded to a specific unit. The user enters their own credentials, the serial is auto-discovered where possible, and a unique device identity is generated automatically per installation.
-
-### Features
-
-- 🔌 Local LAN connection, no cloud required
-- 🔐 Sign-in with local username + password
-- 🛡️ `alarm_control_panel` entity in Home Assistant
-- ✅ Arm away / Disarm
-- 🔴 **Live state read-back** — the panel shows the real armed/disarmed state, **even when changed from the phone**, fully locally
-- 🚪 **Sensors**: door/window (opening) & motion detectors as `binary_sensor`
-- 🌡️ **Temperature & battery** per device as `sensor` (+ voltage, signal, system number as attributes)
-- 🎛️ **Hub setting switches**: LED indicator, GRADE 2, SATEL server connection
-- 🔑 **Auto-registration** (firmware 1.04+): generates its own device id and registers itself — no manual "add device" needed
-- ⚙️ Configurable protection-mode key
-- 🔒 AES-256-GCM crypto, fully local/on-device
-
-> **Status: v0.4.** Sign-in, arm/disarm, live state, switches, **sensors (door/motion/temperature/battery) and auto-registration** verified against a real unit (fw 1.04).
-> Read-back is 100% local (works even with internet off): after sign-in the HUB pushes
-> device state immediately and on every change.
-
-### Install via HACS custom repository
-
-1. Open **HACS**.
-2. Go to **⋮ → Custom repositories**.
-3. Add the following repository as category **Integration**:
-
-```text
-https://github.com/slaveitgr/Satel_BeWAVE_Home_Assistant-
-```
-
-4. Install **BE WAVE (Satel)**.
-5. **Restart** Home Assistant.
-6. Go to **Settings → Devices & Services → Add Integration**.
-7. Search for **BE WAVE**.
-8. Enter the HUB IP, local username and password.
-
-Home Assistant must be on the same LAN as the BE WAVE Smart HUB.
-
-### Manual install
-
-Copy the folder:
-
-```text
-custom_components/bewave/
-```
-
-to your Home Assistant path:
-
-```text
-config/custom_components/bewave/
-```
-
-then restart Home Assistant.
-
-### Test the protocol directly
-
-The protocol core can run standalone, without Home Assistant.
-
-First install the dependency:
-
-```bash
-pip install cryptography
-```
-
-Then test (replace `USER` / `PASS` with your own credentials):
-
-```bash
-python3 custom_components/bewave/bewave_client.py discover
-python3 custom_components/bewave/bewave_client.py status --host 192.168.1.50 --login USER --password 'PASS'
-python3 custom_components/bewave/bewave_client.py arm    --host 192.168.1.50 --login USER --password 'PASS'
-python3 custom_components/bewave/bewave_client.py disarm --host 192.168.1.50 --login USER --password 'PASS'
-```
-
-### How the protocol works
-
-| Stage | Key | AAD |
-|------|-----|-----|
-| sign-in app → hub | MD5(password)·2 | login |
-| sign-in hub → app | deviceUuid ASCII 32B | MD5(login padded to 64) |
-| ongoing app → hub commands | deviceUuid ASCII 32B | MD5(sessionId) |
-| ongoing hub → app status | sessionSecret `f4` from response | MD5(sessionId) |
-
-IV:
-
-```text
-randomNumber ‖ timestamp ‖ counter
-```
-
-in BE32 format.
-
-Cipher:
-
-```text
-AES-256-GCM, 12-byte IV, 16-byte tag
-```
-
-ARM/DISARM payload:
-
-```text
-protobuf f94{f1{f1{f1=mode, f2=1|0}}}
-```
-
-**State read-back (local):** after sign-in the client subscribes to the device channels.
-The HUB then pushes an `f89` device-state message once immediately and again on every
-change — including arming/disarming from the phone. The arming state is carried in
-**protobuf field 20** (`1`=armed, `2`=partial, `0`=disarmed).
-
-### Roadmap
-
-- Multiple protection modes (`arm_home`, `arm_night`, custom)
-- Relays / outputs as `switch` entities (when configured)
-- Time / timezone and network (LAN) settings as services (commands `f92` / `f28` decoded)
-- Keyfob button events (requires Event Log)
+Install via HACS as a custom repository (category *Integration*):
+`https://github.com/danieltechdev/Satel_BeWAVE_Home_Assistant-hybrid`.
 
 ### Disclaimer
 
-This is an unofficial community integration and is not affiliated with SATEL.
-It uses your own credentials to control your own alarm system.
-Do not rely on a software integration or automation as the only security layer for a property.
-Use responsibly and at your own risk.
+Nieoficjalna integracja społecznościowa, niezwiązana z firmą SATEL. Używa Twoich własnych
+danych logowania do sterowania Twoim alarmem. Nie opieraj bezpieczeństwa obiektu wyłącznie
+na integracji lub automatyzacji. Używasz na własną odpowiedzialność.
+_Unofficial community integration, not affiliated with SATEL. Use at your own risk._
 
-## License
+## Licencja / License
 
-MIT — see [LICENSE](LICENSE).
-
-## BE WAVE HYBRID 128 Plus (fork notes)
-
-Tested against a HYBRID 128 Plus (firmware 1.05, LAN, local user). Changes vs. upstream:
-
-- **Header ids**: the panel requires the `userId`/`deviceId` it returns in the sign-in
-  response header in every request (error 100/101 otherwise). They were hard-coded.
-- **Pacing + keep-alive**: HYBRID drops the session after a short silence and when
-  requests arrive in a burst; requests are now paced and a light state request is
-  sent every 1.5 s from a background thread.
-- **Arm modes** are read from the panel (shown as attributes of the alarm entity).
-  Set the one to arm/disarm in the integration options (`mode`), e.g. `1410c`.
-- **Arming** is reported as `arming` until the panel confirms (exit delay).
-
-Each arm mode (e.g. "Ochrona Dom") is its own alarm entity; its state is derived from the armed flag of the devices in that mode (verify with modes_check).
+MIT — zob. [LICENSE](LICENSE). Oryginalny kod: slaveitgr; zmiany dla HYBRID: danieltechdev.
