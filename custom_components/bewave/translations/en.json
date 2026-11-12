@@ -26,9 +26,16 @@
       "init": {
         "title": "BE WAVE options",
         "data": {
-          "mode": "Protection mode key to arm/disarm"
-        }
+          "mode": "Protection mode key to arm/disarm",
+          "code": "PIN for arming/disarming (optional, min. 4 characters; empty = no PIN)",
+          "require_code_arm": "Require the PIN to arm",
+          "require_code_disarm": "Require the PIN to disarm"
+        },
+        "description": "The PIN is checked by Home Assistant only (it is not sent to the panel and does not protect the BE WAVE app or the panel keypad)."
       }
+    },
+    "error": {
+      "code_too_short": "The PIN must have at least 4 characters."
     }
   }
 }

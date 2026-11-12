@@ -15,7 +15,8 @@ except ImportError:  # older fallback
     from homeassistant.components.dhcp import DhcpServiceInfo  # type: ignore
 
 from .const import (DOMAIN, CONF_LOGIN, CONF_PASSWORD, CONF_HOST, CONF_SERIAL,
-                    CONF_DEVICE_UUID, CONF_MODE, DEFAULT_MODE)
+                    CONF_DEVICE_UUID, CONF_MODE, DEFAULT_MODE,
+                    CONF_CODE, CONF_CODE_ARM, CONF_CODE_DISARM)
 from . import bewave_client as proto
 
 
@@ -88,9 +89,19 @@ class BeWaveOptionsFlow(config_entries.OptionsFlow):
         self.entry = entry
 
     async def async_step_init(self, user_input=None):
+        errors = {}
+        opts = self.entry.options
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-        current = self.entry.options.get(
-            CONF_MODE, self.entry.data.get(CONF_MODE, DEFAULT_MODE))
-        schema = vol.Schema({vol.Optional(CONF_MODE, default=current): str})
-        return self.async_show_form(step_id="init", data_schema=schema)
+            user_input[CONF_CODE] = (user_input.get(CONF_CODE) or "").strip()
+            if user_input[CONF_CODE] and len(user_input[CONF_CODE]) < 4:
+                errors["base"] = "code_too_short"
+            else:
+                return self.async_create_entry(title="", data=user_input)
+        current = opts.get(CONF_MODE, self.entry.data.get(CONF_MODE, DEFAULT_MODE))
+        schema = vol.Schema({
+            vol.Optional(CONF_MODE, default=current): str,
+            vol.Optional(CONF_CODE, description={"suggested_value": opts.get(CONF_CODE, "")}): str,
+            vol.Optional(CONF_CODE_ARM, default=opts.get(CONF_CODE_ARM, True)): bool,
+            vol.Optional(CONF_CODE_DISARM, default=opts.get(CONF_CODE_DISARM, True)): bool,
+        })
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

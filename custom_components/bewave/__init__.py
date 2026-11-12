@@ -18,7 +18,7 @@ PLATFORMS = ["alarm_control_panel", "switch", "binary_sensor", "sensor"]
 
 
 CARD_URL = "/bewave/bewave-card.js"
-CARD_VERSION = "0.6.0"
+CARD_VERSION = "0.6.1"
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:
@@ -58,6 +58,8 @@ class BeWaveHub:
         self.state: str | None = None          # armed_away | disarmed | arming | None
         self._arming_until = 0.0               # exit delay: HYBRID confirms arming late
         self._mode_arming: dict[str, float] = {}   # per-mode exit-delay deadlines
+        self.code_fails = 0                    # wrong-PIN counter (anti brute force)
+        self.code_locked_until = 0.0
         self.modes: dict[str, dict] = {}       # arm modes read from the hub
         self.flags = {"led": None, "grade2": None, "satel": None}
         self.info = {"power": None, "stor_free": None, "stor_total": None,

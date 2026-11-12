@@ -25,6 +25,7 @@ ten fork by nie powstał; moje zmiany to tylko dostosowanie do centrali HYBRID. 
 - 🔌 Połączenie lokalne w LAN, logowanie lokalnym użytkownikiem i hasłem
 - 🛡️ **Osobna encja alarmu (`alarm_control_panel`) dla każdego trybu uzbrajania** czytanego z centrali, np. „Ochrona Piwnica", „Ochrona Dom" oraz **„Pełne czuwanie"** (tryb domyślny). Każdy tryb uzbrajasz i rozbrajasz niezależnie
 - ⏳ Stan **„uzbrajanie"** podczas opóźnienia wyjścia (centrala potwierdza uzbrojenie dopiero po nim)
+- 🔢 Opcjonalny **PIN** do uzbrajania i rozbrajania (sprawdzany w Home Assistant, z ekranową klawiaturą na karcie)
 - 🔴 Odczyt stanu na żywo, także gdy tryb zmieniasz z aplikacji w telefonie
 - 🚪 Czujki otwarcia i ruchu jako `binary_sensor`, temperatura i bateria jako `sensor`
 - 🎛️ Przełączniki ustawień centrali (LED, GRADE 2, połączenie z serwerem SATEL)
@@ -85,6 +86,30 @@ sensors:
 
 Jeśli karta nie pojawia się na liście: Ustawienia → Panele → ⋮ → **Zasoby** → dodaj
 `/bewave/bewave-card.js` jako *moduł JavaScript* i odśwież stronę (Ctrl+F5).
+
+## Zabezpieczenie PIN-em
+
+W opcjach integracji (Ustawienia → Urządzenia i usługi → BE WAVE → **Konfiguruj**) możesz ustawić **PIN**
+(min. 4 znaki) i wybrać, czy jest wymagany do uzbrajania, rozbrajania, czy do obu. Wtedy:
+
+- encje alarmu w Home Assistant wymagają kodu (standardowa karta *Alarm panel* też pokaże klawiaturę),
+- karta `bewave-card` pokaże ekranową klawiaturę numeryczną (albo pole hasła, gdy PIN zawiera litery),
+- w automatyzacjach i skryptach podajesz kod w wywołaniu usługi:
+
+```yaml
+action: alarm_control_panel.alarm_disarm
+target:
+  entity_id: alarm_control_panel.be_wave_xxx_ochrona_dom
+data:
+  code: "1234"
+```
+
+Po 5 błędnych kodach z rzędu rozbrajanie jest blokowane na 60 s.
+
+> ⚠️ **To zabezpieczenie działa tylko w Home Assistant.** PIN jest sprawdzany przez HA i zapisany w jego
+> konfiguracji (jawnym tekstem, jak inne opcje integracji). Nie chroni aplikacji BE WAVE, klawiatury
+> centrali ani nikogo, kto ma pełny dostęp do HA (np. do jego plików lub narzędzi deweloperskich).
+> Traktuj go jako ochronę przed przypadkowym lub niepowołanym kliknięciem w panelu, nie jako zamek.
 
 ## Instalacja (HACS)
 
