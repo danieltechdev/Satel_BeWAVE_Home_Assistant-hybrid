@@ -23,7 +23,7 @@ State / data sources:
   f45  config            -> device names, rooms, model, system number.
   f31  connection methods-> active network (LAN/SIM).
 """
-import socket, struct, hashlib, time, secrets, sys
+import socket, struct, hashlib, time, secrets, sys, threading
 
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -122,6 +122,23 @@ def armed_state(plaintext):
     if not vals:
         return None
     return any(v in (1, 2) for v in vals)
+
+def alarm_modes(plaintext):
+    """f53 (StructureGetAlarms response) -> {mode_id: {'name','default','devices'}}
+    or None when the message is not an alarms reply (HYBRID / Smart HUB arm modes)."""
+    d = pb_read(plaintext)
+    if 53 not in d: return None
+    out = {}
+    try:
+        payload = pb_read(d[53][0]).get(1, [b""])[0]
+        for al in pb_read(payload).get(1, []):
+            a = pb_read(al)
+            out[_s(a.get(1, [b""])[0])] = {"name": _s(a.get(2, [b""])[0]),
+                                           "default": bool(a.get(3, [0])[0]),
+                                           "devices": len(a.get(6, []))}
+    except Exception:
+        return None
+    return out
 
 def system_status(plaintext):
     """f27 -> {'led','grade2','satel'} or None.
@@ -270,6 +287,8 @@ class BeWaveClient:
         self.session_id = None
         self.session_secret = None
         self._counter = 0
+        self.user_id = 2        # replaced by the ids the hub returns at sign-in
+        self.device_id = 4
         self.K_signin = md5(password) * 2
         self.A_signin = login.encode()
         self.A_resp = md5(pad(login, 64))
@@ -285,7 +304,8 @@ class BeWaveClient:
         if not self.session_id:
             raise BeWaveError("not signed in")
         return build_message(self.next_counter(), plaintext, self.uuid.encode(),
-                             md5(self.session_id))
+                             md5(self.session_id), user_id=self.user_id,
+                             device_id=self.device_id)
     def subscribe_plaintext(self, field): return pb_bytes(field, pb_bytes(1, b""))
     def register_plaintext(self):
         return pb_bytes(8, pb_bytes(1, pb_bytes(1, self.token.encode()) + pb_varint(2, 1)))
@@ -317,7 +337,12 @@ class BeWaveClient:
             ks.append((self.uuid.encode(), md5(self.session_id)))
         ks.append((self.K_signin, self.A_signin))
         return ks
-    def ingest_response(self, plaintext):
+    def ingest_response(self, plaintext, fd=None):
+        # The hub (HYBRID: error 100/101 otherwise) requires the userId/deviceId it
+        # returned in the sign-in response header in every later request header.
+        if fd:
+            if fd.get(3) is not None: self.user_id = fd[3]
+            if fd.get(4) is not None: self.device_id = fd[4]
         try:
             l2 = pb_read(pb_read(pb_read(plaintext)[7][0])[1][0])
             self.serial = l2[2][0].decode('latin1')
@@ -332,8 +357,25 @@ class LocalConnection:
     def __init__(self, host, client, port=DATA_PORT, timeout=8):
         self.host = host; self.port = port; self.client = client; self.timeout = timeout
         self.sock = None; self._buf = b''
+        self._lock = threading.Lock(); self._stop = threading.Event(); self._ka = None
+
+    def _send(self, plaintext):
+        # counter + socket write under one lock: the keep-alive thread and the
+        # caller (HA coordinator) both send on this socket.
+        with self._lock:
+            self.sock.sendall(self.client.command_message(plaintext))
+
+    def _keepalive(self, period=1.5):
+        # HYBRID drops sessions after a short silence; a light state request every
+        # 1.5 s keeps it open (and makes the hub push f89 state updates).
+        while not self._stop.wait(period):
+            try:
+                self._send(self.client.subscribe_plaintext(88))
+            except Exception:
+                return
 
     def connect_and_signin(self):
+        self._stop.clear()
         self.sock = socket.create_connection((self.host, self.port), self.timeout)
         self.sock.settimeout(self.timeout)
         self.sock.sendall(self.client.signin_message())
@@ -341,30 +383,41 @@ class LocalConnection:
         while time.time() < deadline and not signed:
             self._pump()
             for _fd, pt in self._drain():
-                if pt and len(pt) > 200 and self.client.ingest_response(pt):
+                if pt and len(pt) > 200 and self.client.ingest_response(pt, _fd):
                     signed = True; break
         if not signed:
             raise BeWaveError("sign-in response not received/decrypted")
-        for f in STATE_SUBS:
-            self.sock.sendall(self.client.command_message(self.client.subscribe_plaintext(f)))
-            time.sleep(0.02)
+        # HYBRID closes the session if requests arrive in a burst: pace them and
+        # read replies between sends (the 0.02 s burst was fine on Smart HUB only).
+        self.sock.settimeout(0.5)
+        # state (88), config (44), hub status (26), alarms/modes (52), network (30)
+        order = [88, 44, 26, 52, 30]
+        for f in order:
+            self._send(self.client.subscribe_plaintext(f))
+            t1 = time.time()
+            while time.time() - t1 < 1.2:
+                self._pump()
         try:
-            self.sock.sendall(self.client.command_message(self.client.register_plaintext()))
+            self._send(self.client.register_plaintext())
         except Exception:
             pass
         # capture the hub's initial config (f45) + per-device telemetry (f89) burst,
         # which is pushed once right after subscribing. The standalone app catches it
         # via its continuous reader; here we read a few seconds so the first poll parses it.
-        t0 = time.time()
+        t0 = time.time(); last = t0
         while time.time() - t0 < 3.5:
             self._pump()
+            if time.time() - last > 1.5:
+                self._send(self.client.subscribe_plaintext(88)); last = time.time()
+        self._ka = threading.Thread(target=self._keepalive, daemon=True)
+        self._ka.start()
         return True
 
     def refresh(self):
         """Light re-subscribe (f88 device state, f26 settings) — call each poll."""
         for f in REFRESH_SUBS:
             try:
-                self.sock.sendall(self.client.command_message(self.client.subscribe_plaintext(f)))
+                self._send(self.client.subscribe_plaintext(f))
             except Exception:
                 pass
 
@@ -395,7 +448,7 @@ class LocalConnection:
             self._buf = b""
         return out
     def send_command(self, plaintext):
-        self.sock.sendall(self.client.command_message(plaintext))
+        self._send(plaintext)
     def arm(self, mode="defau"):  self.send_command(self.client.arm_disarm_plaintext(True, mode))
     def disarm(self, mode="defau"): self.send_command(self.client.arm_disarm_plaintext(False, mode))
     def toggle_setting(self, setting_id): self.send_command(self.client.setting_toggle_plaintext(setting_id))
@@ -405,6 +458,7 @@ class LocalConnection:
             self._pump(); out += self._drain()
         return out
     def close(self):
+        self._stop.set()
         try: self.sock.close()
         except Exception: pass
 

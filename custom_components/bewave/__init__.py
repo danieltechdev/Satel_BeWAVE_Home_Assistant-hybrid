@@ -30,7 +30,9 @@ class BeWaveHub:
         self.conn: proto.LocalConnection | None = None
         self._registered = False
         self._empty = 0                        # consecutive polls with no data
-        self.state: str | None = None          # armed_away | disarmed | None
+        self.state: str | None = None          # armed_away | disarmed | arming | None
+        self._arming_until = 0.0               # exit delay: HYBRID confirms arming late
+        self.modes: dict[str, dict] = {}       # arm modes read from the hub
         self.flags = {"led": None, "grade2": None, "satel": None}
         self.info = {"power": None, "stor_free": None, "stor_total": None,
                      "network": None, "firmware": None}
@@ -99,7 +101,16 @@ class BeWaveHub:
                 continue
             st = proto.armed_state(pt)
             if st is not None:
-                self.state = "armed_away" if st else "disarmed"
+                if st:
+                    self.state = "armed_away"
+                    self._arming_until = 0.0
+                elif time.time() < self._arming_until:
+                    self.state = "arming"      # exit delay still running
+                else:
+                    self.state = "disarmed"
+            md = proto.alarm_modes(pt)
+            if md:
+                self.modes = md
             fl = proto.system_status(pt)
             if fl is not None:
                 self.flags.update(fl)
@@ -170,11 +181,16 @@ class BeWaveHub:
 
     def arm(self):
         with self._lock:
-            # do not claim "armed" until the hub confirms via read-back
-            self._command(lambda: self.conn.arm(self.mode),
-                          verify=lambda: self.state == "armed_away")
+            # The hub applies arming after the exit delay (can be >10 s), so accept
+            # "arming" as confirmation and let polling flip it to armed_away.
+            self._arming_until = time.time() + 90
+            ok = self._command(lambda: self.conn.arm(self.mode),
+                               verify=lambda: self.state in ("armed_away", "arming"))
+            if not ok:
+                self._arming_until = 0.0
     def disarm(self):
         with self._lock:
+            self._arming_until = 0.0
             self._command(lambda: self.conn.disarm(self.mode),
                           verify=lambda: self.state == "disarmed")
     def set_toggle(self, name, desired):

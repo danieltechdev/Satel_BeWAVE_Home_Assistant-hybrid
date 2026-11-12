@@ -261,3 +261,19 @@ Use responsibly and at your own risk.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## BE WAVE HYBRID 128 Plus (fork notes)
+
+Tested against a HYBRID 128 Plus (firmware 1.05, LAN, local user). Changes vs. upstream:
+
+- **Header ids**: the panel requires the `userId`/`deviceId` it returns in the sign-in
+  response header in every request (error 100/101 otherwise). They were hard-coded.
+- **Pacing + keep-alive**: HYBRID drops the session after a short silence and when
+  requests arrive in a burst; requests are now paced and a light state request is
+  sent every 1.5 s from a background thread.
+- **Arm modes** are read from the panel (shown as attributes of the alarm entity).
+  Set the one to arm/disarm in the integration options (`mode`), e.g. `1410c`.
+- **Arming** is reported as `arming` until the panel confirms (exit delay).
+
+Known limits: one shared armed/disarmed state (per-mode state is not decoded yet);
+only the `mode` selected in options can be armed from HA.

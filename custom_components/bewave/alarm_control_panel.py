@@ -13,6 +13,7 @@ from .const import DOMAIN
 
 _STATE_MAP = {
     "armed_away": AlarmControlPanelState.ARMED_AWAY,
+    "arming": AlarmControlPanelState.ARMING,
     "disarmed": AlarmControlPanelState.DISARMED,
     "triggered": AlarmControlPanelState.TRIGGERED,
 }
@@ -39,9 +40,16 @@ class BeWaveAlarmPanel(CoordinatorEntity, AlarmControlPanelEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, serial)},
             manufacturer="Satel",
-            model="BE WAVE Smart HUB",
+            model="BE WAVE HUB / HYBRID",
             name=f"BE WAVE {serial}",
         )
+
+    @property
+    def extra_state_attributes(self):
+        # arm modes known to the panel (id -> name); the active one is set in the
+        # integration options ("mode"), e.g. 1410c = "Ochrona Piwnica"
+        return {"active_mode": self._hub.mode,
+                "available_modes": {k: v.get("name") or k for k, v in self._hub.modes.items()}}
 
     @property
     def alarm_state(self) -> AlarmControlPanelState | None:
