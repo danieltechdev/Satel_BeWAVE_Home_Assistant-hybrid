@@ -17,6 +17,31 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["alarm_control_panel", "switch", "binary_sensor", "sensor"]
 
 
+CARD_URL = "/bewave/bewave-card.js"
+CARD_VERSION = "0.6.0"
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Serve the Lovelace card and load it in the frontend (best effort)."""
+    if hass.data.get(f"{DOMAIN}_card_registered"):
+        return
+    hass.data[f"{DOMAIN}_card_registered"] = True
+    try:
+        from pathlib import Path
+        path = str(Path(__file__).parent / "www" / "bewave-card.js")
+        try:
+            from homeassistant.components.http import StaticPathConfig
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(CARD_URL, path, False)])
+        except ImportError:                      # HA < 2024.7
+            hass.http.register_static_path(CARD_URL, path, False)
+        from homeassistant.components.frontend import add_extra_js_url
+        add_extra_js_url(hass, f"{CARD_URL}?v={CARD_VERSION}")
+    except Exception as err:                     # never block the integration
+        _LOGGER.warning("BE WAVE: could not register the Lovelace card (%s); add "
+                        "%s as a Dashboard resource manually", err, CARD_URL)
+
+
 class BeWaveHub:
     """Owns a persistent local connection; thread-safe for executor jobs."""
 
@@ -247,6 +272,7 @@ class BeWaveHub:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    await _async_register_card(hass)
     hub = BeWaveHub(
         host=entry.data[CONF_HOST],
         login=entry.data[CONF_LOGIN],

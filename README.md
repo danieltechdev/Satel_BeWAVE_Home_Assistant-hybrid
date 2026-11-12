@@ -52,6 +52,40 @@ Centrala HYBRID mówi tym samym protokołem, ale jest bardziej wymagająca niż 
 5. **Stan „uzbrajanie".** Komenda uzbrojenia nie jest powtarzana, gdy centrala nie potwierdza
    jej natychmiast (opóźnienie wyjścia); encja pokazuje „uzbrajanie" do 90 s.
 
+## Karta do panelu (Lovelace)
+
+W zestawie jest karta **`bewave-card`**: pokazuje każdy tryb jako kolorowy wiersz (zielony – rozbrojony,
+pomarańczowy – uzbrajanie, czerwony – uzbrojony/alarm) z przyciskiem Uzbrój / Rozbrój / Anuluj,
+oraz opcjonalnie czujki (otwarcie, ruch, temperatura). Działa w jasnym i ciemnym motywie, po polsku i angielsku.
+
+<p><img src="docs/card-light.png" width="300"> <img src="docs/card-dark.png" width="300"></p>
+
+Karta ładuje się sama razem z integracją. Dodaj ją w edytorze panelu (**Dodaj kartę → Własna: BE WAVE alarm**)
+albo w YAML. Najprostsza wersja sama znajdzie encje trybów:
+
+```yaml
+type: custom:bewave-card
+title: Alarm
+```
+
+Z czujkami i własnymi nazwami:
+
+```yaml
+type: custom:bewave-card
+title: Alarm
+confirm_disarm: true          # pytaj przed rozbrojeniem (opcjonalnie)
+entities:                     # opcjonalnie; bez tego karta znajdzie je sama
+  - alarm_control_panel.be_wave_xxx_ochrona_dom
+  - entity: alarm_control_panel.be_wave_xxx_ochrona_piwnica
+    name: Piwnica
+sensors:
+  - binary_sensor.piwnica_czujka_otwarcia
+  - sensor.piwnica_temperatura
+```
+
+Jeśli karta nie pojawia się na liście: Ustawienia → Panele → ⋮ → **Zasoby** → dodaj
+`/bewave/bewave-card.js` jako *moduł JavaScript* i odśwież stronę (Ctrl+F5).
+
 ## Instalacja (HACS)
 
 1. HACS → ⋮ → **Custom repositories** → dodaj jako **Integration**:
