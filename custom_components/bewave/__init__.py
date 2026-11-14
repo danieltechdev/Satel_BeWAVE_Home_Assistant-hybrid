@@ -18,7 +18,7 @@ PLATFORMS = ["alarm_control_panel", "switch", "binary_sensor", "sensor"]
 
 
 CARD_URL = "/bewave/bewave-card.js"
-CARD_VERSION = "0.6.1"
+CARD_VERSION = "0.7.0"
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:
@@ -215,7 +215,31 @@ class BeWaveHub:
                         "cat": proto.DEV_TYPES.get(typ, "device"),
                         "state": st.get("state"), "temp": st.get("temp"),
                         "battery": st.get("battery"), "signal": st.get("signal"),
-                        "volt": st.get("volt")})
+                        "volt": st.get("volt"), "armed": st.get("armed")})
+        return out
+
+    def mode_devices(self, mode):
+        """Devices that belong to an arm mode, with live data, for the Lovelace card.
+        Default mode = every armable device; mode None (legacy entity) = all devices."""
+        devs = self.devices()
+        if mode is not None:
+            info = self.modes.get(mode) or {}
+            ids = info.get("device_ids") or []
+            if not ids and info.get("default"):
+                ids = self._armable_ids()
+            order = {i: n for n, i in enumerate(ids)}
+            devs = sorted((d for d in devs if d["id"] in order), key=lambda d: order[d["id"]])
+        else:
+            devs = sorted(devs, key=lambda d: (d.get("room") or "", d.get("name") or ""))
+        keys = ("name", "room", "model", "cat", "state", "armed", "bypass",
+                "battery", "signal", "temp", "volt")
+        out = []
+        for d in devs:
+            row = {k: d.get(k) for k in keys}
+            for k in ("temp", "volt"):
+                if isinstance(row[k], float):
+                    row[k] = round(row[k], 2 if k == "volt" else 1)
+            out.append(row)
         return out
 
     def _command(self, send, verify=None):
