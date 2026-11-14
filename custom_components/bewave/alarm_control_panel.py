@@ -42,6 +42,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class BeWaveAlarmPanel(CoordinatorEntity, AlarmControlPanelEntity):
     _attr_has_entity_name = True
     _attr_supported_features = AlarmControlPanelEntityFeature.ARM_AWAY
+    # live device data changes often - keep it out of the recorder database
+    _unrecorded_attributes = frozenset({"devices", "available_modes"})
 
     def __init__(self, coordinator, hub, entry: ConfigEntry, mode, mode_name):
         super().__init__(coordinator)
@@ -95,7 +97,8 @@ class BeWaveAlarmPanel(CoordinatorEntity, AlarmControlPanelEntity):
         return {"code_disarm_required": bool(self._pin()) and
                 self._entry.options.get(CONF_CODE_DISARM, True),
                 "mode_id": self._mode or self._hub.mode,
-                "available_modes": {k: v.get("name") or k for k, v in self._hub.modes.items()}}
+                "available_modes": {k: v.get("name") or k for k, v in self._hub.modes.items()},
+                "devices": self._hub.mode_devices(self._mode)}
 
     @property
     def alarm_state(self) -> AlarmControlPanelState | None:

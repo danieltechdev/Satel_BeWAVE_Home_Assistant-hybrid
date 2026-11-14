@@ -43,9 +43,13 @@ Szczegóły techniczne: [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
 ## Karta do panelu (Lovelace)
 
-W zestawie jest karta **`bewave-card`**: pokazuje każdy tryb jako kolorowy wiersz (zielony – rozbrojony,
-pomarańczowy – uzbrajanie, czerwony – uzbrojony/alarm) z przyciskiem Uzbrój / Rozbrój / Anuluj,
-oraz opcjonalnie czujki (otwarcie, ruch, temperatura). Działa w jasnym i ciemnym motywie, po polsku i angielsku.
+W zestawie jest karta **`bewave-card`**. Każdy tryb to kolorowy wiersz (zielony – rozbrojony,
+pomarańczowy – uzbrajanie, czerwony – uzbrojony lub alarm) z przyciskiem Uzbrój / Rozbrój / Anuluj.
+Pod nazwą widać od razu ostrzeżenia: otwartą czujkę, ruch albo słabą baterię.
+
+**Kliknij wiersz, żeby go rozwinąć** – zobaczysz urządzenia tego trybu: pokój, stan (otwarte/zamknięte, ruch),
+czy urządzenie czuwa, baterię, sygnał, temperaturę i napięcie. Działa w jasnym i ciemnym motywie,
+po polsku i angielsku, także z klawiatury.
 
 <p><img src="docs/card-light.png" width="300"> <img src="docs/card-dark.png" width="300"></p>
 
@@ -57,18 +61,19 @@ type: custom:bewave-card
 title: Alarm
 ```
 
-Z czujkami i własnymi nazwami:
+Wszystkie opcje (każda jest opcjonalna):
 
 ```yaml
 type: custom:bewave-card
 title: Alarm
-confirm_disarm: true          # pytaj przed rozbrojeniem (opcjonalnie)
-entities:                     # opcjonalnie; bez tego karta znajdzie je sama
+expanded: first               # false (domyślnie) | true = wszystkie rozwinięte | first = pierwszy
+show_details: true            # false = bez rozwijanych szczegółów
+confirm_disarm: true          # pytaj przed rozbrojeniem (gdy nie ma PIN-u)
+entities:                     # bez tego karta znajdzie tryby sama
   - alarm_control_panel.be_wave_xxx_ochrona_dom
   - entity: alarm_control_panel.be_wave_xxx_ochrona_piwnica
     name: Piwnica
-sensors:
-  - binary_sensor.piwnica_czujka_otwarcia
+sensors:                      # dodatkowe encje pokazane jako etykiety na dole
   - sensor.piwnica_temperatura
 ```
 
